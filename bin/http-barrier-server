@@ -1,0 +1,54 @@
+#!/usr/bin/env node
+/* Script that will wait for X clients to connect, and will reply to them all at once. */
+/* This will block until all X clients have been notified and are unblocked. */
+
+var http  = require('http');
+
+// Retrieve and check arguments
+var args = require('minimist')(process.argv.slice(2));
+if (args._.length < 2 || args._.length > 2 || args.h || args.help) {
+  console.error('usage: http-barrier-server clients serverport');
+  console.error('       clients:    The amount of clients to wait for.');
+  console.error('       serverport: Server communication port.');
+  return process.exit(1);
+}
+
+var serverport = parseInt(args._.pop()),
+    clientNr   = parseInt(args._.pop()),
+    done       = false;
+
+var server = http.createServer(function(request, response) {
+  checkClient(request.connection.remoteAddress, request.url.substr(1, request.url.size));
+  response.writeHead(200, {"Content-Type": "text/plain"});
+  response.end("Everyone is alive.");
+  request.connection.destroy();
+}).listen(serverport);
+
+function checkClient(address, port) {
+  console.log("Waiting for " + --clientNr + " clients...");
+  if(clientNr == 0) {
+    done = true;
+    server.close();
+  }
+  sleep(function() {
+    http.get({
+      host: address,
+      port: port,
+      path: '/'
+    }, function(resp){
+
+    }).on("error", function(e){
+      console.log("Got error: " + e.message);
+    });
+  });
+}
+
+function sleep(f) {
+  setTimeout(function() {
+    if(!done) {
+      sleep(f);
+    } else {
+      f();
+    }
+  }, 10);
+}

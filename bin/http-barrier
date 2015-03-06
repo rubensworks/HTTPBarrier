@@ -1,0 +1,48 @@
+#!/usr/bin/env node
+/* Client script for the barrier, blocking. */
+/* This script will block until all clients are connected to the clients, after which all clients will unblock at once. */
+
+var http  = require('http');
+
+// Retrieve and check arguments
+var args = require('minimist')(process.argv.slice(2));
+if (args._.length < 3 || args._.length > 3 || args.h || args.help) {
+  console.error('usage: http-barrier server serverport clientport');
+  console.error('       server:     Server address.');
+  console.error('       serverport: Server communication port.');
+  console.error('       clientport: Client communication port.');
+  return process.exit(1);
+}
+
+var clientport = parseInt(args._.pop()),
+    serverport = parseInt(args._.pop()),
+    server     = args._.pop(),
+    done       = false;
+
+var s = http.createServer(function(request, response) {
+  response.writeHead(200, {"Content-Type": "text/plain"});
+  response.end("I will close my connection now.");
+  done = true;
+  s.close();
+  request.connection.destroy();
+}).listen(clientport);
+
+http.get({
+  host: server,
+  port: serverport,
+  path: '/' + clientport
+});
+
+sleep(function() {
+  console.log("Everyone is alive.");
+});
+
+function sleep(f) {
+  setTimeout(function() {
+    if(!done) {
+      sleep(f);
+    } else {
+      f();
+    }
+  }, 10);
+}
