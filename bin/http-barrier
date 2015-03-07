@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /* Client script for the barrier, blocking. */
 /* This script will block until all clients are connected to the clients, after which all clients will unblock at once. */
+/* Also works when this client connects before the server is up. */
 
 var http  = require('http');
 
@@ -27,11 +28,16 @@ var s = http.createServer(function(request, response) {
   request.connection.destroy();
 }).listen(clientport);
 
-http.get({
-  host: server,
-  port: serverport,
-  path: '/' + clientport
-});
+function aliveSignal() {
+  http.get({
+    host: server,
+    port: serverport,
+    path: '/' + clientport
+  }).on('error', function () {
+    setTimeout(aliveSignal, 500);
+  });
+}
+aliveSignal();
 
 sleep(function() {
   console.log("Everyone is alive.");
